@@ -10,6 +10,7 @@
   angular.module('mgcrea.pullToRefresh', []).constant('pullToRefreshConfig', {
     treshold: 60,
     debounce: 400,
+    maxTranslate: 200,
     text: {
       pull: 'pull to refresh',
       release: 'release to refresh',
@@ -46,8 +47,38 @@
               });
             };
             var shouldReload = false;
+
+            function getTransformStyle(translate) {
+              var translateFn = 'translateY(' + translate + 'px)';
+              return {
+                '-webkit-transform': translateFn,
+                'transform': translateFn
+              };
+            }
+
+            function getTouch(evt) {
+              var event = evt;
+              if (event.originalEvent) {
+                event = event.originalEvent;
+              }
+              return event.touches[0];
+            }
+
+            var startY;
+            iElement.bind('touchstart', function(ev) {
+              startY = getTouch(ev).pageY;
+            });
+
             iElement.bind('touchmove', function (ev) {
               var top = scrollElement[0].scrollTop;
+              var currentY = getTouch(ev).pageY;
+              var scrollValue = currentY - startY;
+              var translate = scrollValue < config.maxTranslate ? scrollValue : config.maxTranslate;
+              iElement.css(getTransformStyle(translate));
+              if (top === 0) {
+                top = startY - currentY;
+              }
+
               if (top < -config.treshold && !shouldReload) {
                 setStatus('release');
               } else if (top > -config.treshold && shouldReload) {
@@ -57,6 +88,9 @@
             iElement.bind('touchend', function (ev) {
               if (!shouldReload)
                 return;
+
+              iElement.css(getTransformStyle(0));
+
               ptrElement.style.webkitTransitionDuration = 0;
               ptrElement.style.margin = '0 auto';
               setStatus('loading');
